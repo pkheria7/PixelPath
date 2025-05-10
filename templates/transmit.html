@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h1 class="card-title">
+            <i class="fas fa-paper-plane"></i> 
+            Secretive Transmitter
+        </h1>
+        <p>Hide your secret message in an image that only the intended recipient can decode.</p>
+    </div>
+    
+    <form id="transmit-form" enctype="multipart/form-data">
+        <div class="form-group">
+            <label for="keyword">Keyword (Single Short Word)</label>
+            <input type="text" id="keyword" name="keyword" placeholder="Enter a single keyword" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="prime_number">Prime Number</label>
+            <select id="prime_number" name="prime_number" required>
+                <option value="" disabled selected>Select a prime number</option>
+                <option value="19">19</option>
+                <option value="23">23</option>
+                <option value="29">29</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="random_number">Random Number (less than 1000)</label>
+            <input type="number" id="random_number" name="random_number" min="1" max="999" placeholder="Enter a random number" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="image">Upload Image</label>
+            <div class="file-input-wrapper">
+                <label for="image" class="file-input-label">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <span>Drop your image here or click to browse</span>
+                </label>
+                <input type="file" id="image" name="image" accept="image/*" required>
+            </div>
+            <span id="image-name" class="hidden"></span>
+            <img id="image-preview" class="file-preview hidden" alt="Image preview">
+        </div>
+        
+        <div class="form-group">
+            <label for="secret_message">Secret Message</label>
+            <textarea id="secret_message" name="secret_message" rows="4" placeholder="Enter your secret message here" required></textarea>
+        </div>
+        
+        <button type="submit" class="btn btn-primary">
+            <i class="fas fa-lock"></i>
+            Generate Secure Message
+        </button>
+    </form>
+    
+    <div class="loader"></div>
+    
+    <div id="transmit-result" class="result-section" style="display:none;">
+        <h3>Your Secret Message is Ready!</h3>
+        <p>Share the following password with the recipient:</p>
+        
+        <div class="password-box">
+            <span id="generated-password" class="password-text"></span>
+            <button class="copy-btn" data-copy="generated-password">
+                <i class="fas fa-copy"></i>
+            </button>
+        </div>
+        
+        <div class="download-section">
+            <p>Download your encoded image</p>
+            
+            <div class="action-buttons">
+                <a id="download-link" href="#" class="btn btn-primary">
+                    <i class="fas fa-download"></i>
+                    Download Image
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Show the image preview when a file is selected
+    document.getElementById('image').addEventListener('change', function() {
+        const preview = document.getElementById('image-preview');
+        const nameSpan = document.getElementById('image-name');
+        
+        if (this.files && this.files[0]) {
+            // Your existing preview code...
+        }
+    });
+
+    // Handle form submission
+    document.getElementById('transmit-form').addEventListener('submit', function(e) {
+        e.preventDefault(); // Prevent default form submission
+        
+        // Show loader
+        document.querySelector('.loader').style.display = 'block';
+        
+        // Create FormData from the form
+        const formData = new FormData(this);
+        
+        // Send the form data to the server
+        fetch('/process_transmit', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+        document.querySelector('.loader').style.display = 'none';    
+    if (data.success) {
+        // Show results
+        document.getElementById('transmit-result').style.display = 'block';
+        document.getElementById('generated-password').textContent = data.password;
+        
+        // Make sure you're setting the href to the download_url from the response
+        const downloadBtn = document.getElementById('download-link');
+        downloadBtn.href = data.download_url;  // This must be set to data.download_url
+        
+        console.log('Download URL set to:', data.download_url);
+    }
+})
+      
+        .catch(error => {
+            console.error('Error:', error);
+            document.querySelector('.loader').style.display = 'none';
+            alert('An error occurred. Please try again.');
+        });
+    });
+</script>
+{% endblock %}

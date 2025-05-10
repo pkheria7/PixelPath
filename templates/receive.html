@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h1 class="card-title">
+            <i class="fas fa-inbox"></i> 
+            Secret Receiver
+        </h1>
+        <p>Decode the hidden message from an encrypted image using the provided password.</p>
+    </div>
+    
+    <form id="receive-form" enctype="multipart/form-data">
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="text" id="password" name="password" placeholder="Enter the password provided by the sender" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="image">Upload Encrypted Image</label>
+            <div class="file-input-wrapper">
+                <label for="image" class="file-input-label">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <span>Drop the encrypted image here or click to browse</span>
+                </label>
+                <input type="file" id="image" name="image" accept="image/*" required>
+            </div>
+            <span id="image-name" class="hidden"></span>
+            <img id="image-preview" class="file-preview hidden" alt="Image preview">
+        </div>
+        
+        <button type="submit" class="btn btn-primary">
+            <i class="fas fa-unlock-alt"></i>
+            Reveal Secret Message
+        </button>
+    </form>
+    
+    <div class="loader"></div>
+    
+    <div id="receive-result" class="result-section">
+        <h3>Secret Message Decoded!</h3>
+        <p>The hidden message in this image is:</p>
+        
+        <div class="password-box">
+            <span id="decoded-message" class="password-text"></span>
+            <button class="copy-btn" data-copy="decoded-message">
+                <i class="fas fa-copy"></i>
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Show the image preview when a file is selected
+    document.getElementById('image').addEventListener('change', function() {
+        const preview = document.getElementById('image-preview');
+        const nameSpan = document.getElementById('image-name');
+        
+        if (this.files && this.files[0]) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                preview.src = e.target.result;
+                preview.classList.remove('hidden');
+                nameSpan.textContent = `Selected: ${document.getElementById('image').files[0].name}`;
+                nameSpan.classList.remove('hidden');
+            }
+            
+            reader.readAsDataURL(this.files[0]);
+        }
+    });
+
+    document.getElementById('receive-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Show loader
+        document.querySelector('.loader').style.display = 'block';
+        
+        const formData = new FormData(this);
+        
+        fetch('/process_receive', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Hide loader
+            document.querySelector('.loader').style.display = 'none';
+            
+            if (data.success) {
+                // Show the secret message in the result area
+                document.getElementById('receive-result').style.display = 'block';
+                document.getElementById('decoded-message').textContent = data.message;
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.querySelector('.loader').style.display = 'none';
+            alert('An error occurred. Please try again.');
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="hero">
+    <h1>Welcome to PixelPath</h1>
+    <p>A secure steganography platform that allows you to hide secret messages within images, keeping your communications private and protected.</p>
+    
+    <div class="action-buttons">
+        <a href="{{ url_for('transmit') }}" class="btn btn-primary">
+            <i class="fas fa-paper-plane"></i>
+            Transmit Message
+        </a>
+        <a href="{{ url_for('receive') }}" class="btn btn-secondary">
+            <i class="fas fa-inbox"></i>
+            Receive Message
+        </a>
+    </div>
+</div>
+
+<div class="info-section">
+    <h2 class="text-center">How It Works</h2>
+    <p class="text-center">PixelPath uses advanced steganography techniques to securely hide messages within images, making them invisible to the naked eye.</p>
+    
+    <div class="info-grid">
+        <div class="info-card">
+            <div class="info-card-icon">
+                <i class="fas fa-lock"></i>
+            </div>
+            <h3>Secure Encryption</h3>
+            <p>Your messages are encrypted using prime number-based algorithms, ensuring only intended recipients can read them.</p>
+        </div>
+        
+        <div class="info-card">
+            <div class="info-card-icon">
+                <i class="fas fa-image"></i>
+            </div>
+            <h3>Visual Steganography</h3>
+            <p>We hide your data in images by modifying pixels in ways that are imperceptible to humans but retrievable with the right key.</p>
+        </div>
+        
+        <div class="info-card">
+            <div class="info-card-icon">
+                <i class="fas fa-key"></i>
+            </div>
+            <h3>Password Protection</h3>
+            <p>A unique password is generated for each transmission, ensuring only those with the correct key can access your hidden message.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
