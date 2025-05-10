@@ -27,7 +27,7 @@ To set up the project locally, follow these steps:
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/yourusername/pixelpath.git
+   git clone https://github.com/pkheria7/PixelPath.git
    cd pixelpath
    ```
 
