@@ -5,9 +5,6 @@ import secrets
 from encoder import get_Password
 from werkzeug.utils import secure_filename
 from decoder import decrypt_image
-#from utils.encoder import get_password  
-
-# Import your decoder function
 
 
 app = Flask(__name__)
@@ -49,6 +46,10 @@ def process_transmit():
             image_file = request.files['image']
             if image_file.filename == '':
                 return jsonify({'error': 'No image selected'}), 400
+            
+            # Check if the file is a .png
+            if not image_file.filename.lower().endswith('.png'):
+                return jsonify({'error': 'Wrong file extension. Please upload a .png file.'}), 400
             
             filename = secure_filename(image_file.filename)
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
@@ -156,7 +157,6 @@ def download_file(filename):
 
 
 if __name__ == '__main__':
-
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
     
