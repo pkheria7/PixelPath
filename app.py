@@ -69,7 +69,6 @@ def process_transmit():
             # Import encryption function and encrypt the image
             print("Starting image encryption...")
             from encoder import encrypt_image
-            from visualise import vis
             # Check if function exists
             if not callable(encrypt_image):
                 return jsonify({'error': 'encrypt_image function not found or not callable'}), 500
@@ -157,7 +156,7 @@ def download_file(filename):
 
 
 if __name__ == '__main__':
-    # port = int(os.environ.get("PORT", 5000))
-    # app.run(host="0.0.0.0", port=port, debug=True)
-    app.run(debug=True, port=8080)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)
+    # app.run(debug=True, port=8080)
     
