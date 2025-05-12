@@ -4,3 +4,4 @@ Jinja2==3.0.1
 Pillow==9.0.0
 numpy==1.22.0
 imageio
+ordered-set
