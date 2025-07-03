@@ -62,11 +62,11 @@
         <p>Share the following password with the recipient:</p>
         
         <div class="password-box">
-            <span id="generated-password" class="password-text"></span>
-            <button class="copy-btn" data-copy="generated-password">
-                <i class="fas fa-copy"></i>
-            </button>
-        </div>
+    <span id="generated-password" class="password-text"></span>
+    <button class="copy-btn" id="copy-password-btn">
+        <i class="fas fa-copy"></i>
+    </button>
+</div>
         
         <div class="download-section">
             <p>Download your encoded image</p>
@@ -88,52 +88,797 @@
 
 {% block scripts %}
 <script>
-    // Show the image preview when a file is selected
-    document.getElementById('image').addEventListener('change', function() {
-        const preview = document.getElementById('image-preview');
-        const nameSpan = document.getElementById('image-name');
-        
-        if (this.files && this.files[0]) {
-            // Your existing preview code...
-        }
-    });
-
-    // Handle form submission
-    document.getElementById('transmit-form').addEventListener('submit', function(e) {
-        e.preventDefault(); // Prevent default form submission
-        
-        // Show loader
-        document.querySelector('.loader').style.display = 'block';
-        
-        // Create FormData from the form
-        const formData = new FormData(this);
-        
-        // Send the form data to the server
-        fetch('/process_transmit', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-        document.querySelector('.loader').style.display = 'none';    
-    if (data.success) {
-        // Show results
-        document.getElementById('transmit-result').style.display = 'block';
-        document.getElementById('generated-password').textContent = data.password;
-        
-        // Make sure you're setting the href to the download_url from the response
-        const downloadBtn = document.getElementById('download-link');
-        downloadBtn.href = data.download_url;  // This must be set to data.download_url
-        
-        console.log('Download URL set to:', data.download_url);
-    }
-})
-      
-        .catch(error => {
-            console.error('Error:', error);
-            document.querySelector('.loader').style.display = 'none';
-            alert('An error occurred. Please try again.');
+// Clean solution that fixes both issues
+document.addEventListener('DOMContentLoaded', function() {
+    // Clear any existing handlers by creating a clean slate
+    cleanupExistingHandlers();
+    
+    // 1. Fix the form processing issue
+    const form = document.getElementById('transmit-form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Get submit button
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalBtnText = submitBtn.innerHTML;
+            
+            // Show loading state
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            
+            // Show loader if present
+            const loader = document.querySelector('.loader');
+            if (loader) loader.style.display = 'block';
+            
+            // Send form data
+            const formData = new FormData(form);
+            fetch('/process_transmit', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Always reset button state immediately
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnText;
+                
+                // Hide loader
+                if (loader) loader.style.display = 'none';
+                
+                if (data.success) {
+                    // Update results
+                    document.getElementById('generated-password').textContent = data.password;
+                    document.getElementById('download-link').href = data.download_url;
+                    document.getElementById('transmit-result').style.display = 'block';
+                    
+                    // Scroll to results
+                    document.getElementById('transmit-result').scrollIntoView({ behavior: 'smooth' });
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error occurred'));
+                }
+            })
+            .catch(error => {
+                // Reset button on error too
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnText;
+                
+                // Hide loader
+                if (loader) loader.style.display = 'none';
+                
+                alert('Error: ' + error.message);
+            });
         });
-    });
+    }
+    
+    // 2. Fix the visualization button with fixed height container
+    const visualizeBtn = document.getElementById('visualization-button');
+    if (visualizeBtn) {
+        // Create a fixed-height container that's always present
+        const container = document.createElement('div');
+        container.id = 'vis-container';
+        container.style.marginTop = '20px';
+        container.style.display = 'none';  // Hidden by default
+        container.style.textAlign = 'center';
+        container.style.minHeight = '0px'; // Will expand but not collapse
+        
+        // Add it to the download section
+        const downloadSection = document.querySelector('.download-section');
+        if (downloadSection) {
+            downloadSection.appendChild(container);
+        }
+        
+        // Set up click handler
+        visualizeBtn.addEventListener('click', function() {
+            if (container.style.display === 'none') {
+                // Show visualization
+                container.style.display = 'block';
+                container.innerHTML = '<div style="padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Loading visualization...</div>';
+                this.innerHTML = '<i class="fas fa-eye-slash"></i> Hide Visualization';
+                
+                // Load the visualization
+                const img = new Image();
+                img.onload = function() {
+                    container.innerHTML = '';
+                    container.appendChild(img);
+                };
+                img.onerror = function() {
+                    container.innerHTML = '<div class="alert alert-danger">Failed to load visualization</div>';
+                };
+                img.style.maxWidth = '100%';
+                img.src = '/visualization?' + new Date().getTime();
+            } else {
+                // Hide visualization
+                container.style.display = 'none';
+                container.innerHTML = ''; // Clear content
+                this.innerHTML = '<i class="fas fa-eye"></i> Visualise graph';
+            }
+        });
+    }
+    
+    // Setup copy password functionality
+    const copyBtn = document.getElementById('copy-password-btn');
+    if (copyBtn) {
+        copyBtn.addEventListener('click', function() {
+            const passwordText = document.getElementById('generated-password').textContent;
+            navigator.clipboard.writeText(passwordText).then(
+                function() {
+                    // Show success feedback
+                    const originalHTML = copyBtn.innerHTML;
+                    copyBtn.innerHTML = '<i class="fas fa-check"></i>';
+                    
+                    setTimeout(function() {
+                        copyBtn.innerHTML = originalHTML;
+                    }, 1500);
+                }
+            );
+        });
+    }
+    
+    // Helper function to clean up existing handlers
+    function cleanupExistingHandlers() {
+        // Replace elements with clones to remove event handlers
+        const elementsToClean = [
+            document.getElementById('transmit-form'),
+            document.getElementById('visualization-button'),
+            document.getElementById('copy-password-btn')
+        ];
+        
+        elementsToClean.forEach(elem => {
+            if (elem && elem.parentNode) {
+                const clone = elem.cloneNode(true);
+                elem.parentNode.replaceChild(clone, elem);
+            }
+        });
+        
+        // Remove any duplicate visualization containers
+        const containers = [
+            document.getElementById('vis-container'),
+            document.getElementById('visualization-container')
+        ];
+        
+        containers.forEach(container => {
+            if (container) container.remove();
+        });
+    }
+});
+</script>
+
+<!-- Add this style to prevent layout shifts -->
+<style>
+.download-section {
+    position: relative;
+    margin-top: 20px;
+    padding-bottom: 20px; /* Add some padding to avoid content jumps */
+}
+
+#vis-container {
+    transition: all 0.3s ease; /* Smooth transition for height changes */
+}
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Get the form
+    const form = document.getElementById('transmit-form');
+    if (form) {
+        // Save original form submission handler
+        const originalSubmit = form.onsubmit;
+        
+        // Replace with our enhanced handler
+        form.onsubmit = function(e) {
+            e.preventDefault();
+            
+            // Get the submit button
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalBtnText = submitBtn ? submitBtn.innerHTML : 'Submit';
+            
+            // Show processing state
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            }
+            
+            const formData = new FormData(form);
+            
+            fetch('/process_transmit', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                // IMPORTANT: Reset button state immediately
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalBtnText;
+                }
+                
+                if (data.success) {
+                    // Handle successful response by updating the page
+                    // This assumes your page already has elements for displaying results
+                    
+                    // Setup visualization button with proper toggle behavior
+                    setTimeout(function() {
+                        setupVisualizationButton();
+                    }, 100);
+                } else {
+                    // Show error
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                // IMPORTANT: Reset button state on error too
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalBtnText;
+                }
+                
+                alert('Error: ' + error.message);
+            });
+        };
+    }
+    
+    // Function to set up visualization button with proper toggle behavior
+    function setupVisualizationButton() {
+        // Find the button by ID or other selectors
+        const visualizeBtn = document.getElementById('visualization-button') || 
+                           document.getElementById('visualize-btn') || 
+                           document.querySelector('[data-action="visualize"]');
+        
+        if (visualizeBtn) {
+            // Remove old event listeners by cloning
+            const newBtn = visualizeBtn.cloneNode(true);
+            visualizeBtn.parentNode.replaceChild(newBtn, visualizeBtn);
+            
+            // Add fresh event listener with correct toggle behavior
+            newBtn.addEventListener('click', function() {
+                // Find or create visualization container
+                let container = document.getElementById('vis-container') || 
+                              document.getElementById('visualization-container');
+                
+                if (!container) {
+                    container = document.createElement('div');
+                    container.id = 'visualization-container';
+                    container.style.marginTop = '15px';
+                    
+                    // Try to append to appropriate parent
+                    const possibleParents = [
+                        document.querySelector('.download-section'),
+                        newBtn.parentNode,
+                        document.querySelector('.card-body'),
+                        document.querySelector('.result-section')
+                    ];
+                    
+                    // Try each parent until one works
+                    for (const parent of possibleParents) {
+                        if (parent) {
+                            try {
+                                parent.appendChild(container);
+                                break; // Success, exit loop
+                            } catch (err) {
+                                console.log('Could not append to', parent);
+                                // Continue to next possible parent
+                            }
+                        }
+                    }
+                }
+                
+                // Toggle visualization display with proper button text
+                if (container.style.display === 'none' || !container.style.display) {
+                    // Show visualization
+                    container.style.display = 'block';
+                    container.innerHTML = '<div style="text-align:center;padding:20px;"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+                    
+                    const img = new Image();
+                    img.onload = function() {
+                        container.innerHTML = '';
+                        try {
+                            container.appendChild(img);
+                            newBtn.innerHTML = '<i class="fas fa-eye-slash"></i> Hide Visualization';
+                        } catch (err) {
+                            console.log('Error appending image:', err);
+                            container.innerHTML = '<div>Visualization loaded</div>';
+                        }
+                    };
+                    img.onerror = function() {
+                        container.innerHTML = '<div class="alert alert-danger">Failed to load visualization</div>';
+                    };
+                    img.style.maxWidth = '100%';
+                    img.src = '/visualization?' + new Date().getTime();
+                } else {
+                    // Hide visualization
+                    container.style.display = 'none';
+                    container.innerHTML = '';
+                    newBtn.innerHTML = '<i class="fas fa-eye"></i> Show Visualization';
+                }
+            });
+        }
+    }
+    
+    // Call setup function on page load to handle existing button
+    setupVisualizationButton();
+});
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Define a scoped namespace to avoid conflicts
+    const PixelPath = {
+        // Initialize everything
+        init: function() {
+            this.setupImagePreview();
+            this.setupFormSubmission();
+            this.setupPasswordCopy();
+            this.setupVisualization();
+        },
+        
+        // Set up image preview functionality
+        setupImagePreview: function() {
+            const fileInput = document.getElementById('image');
+            if (!fileInput) return;
+            
+            fileInput.addEventListener('change', function() {
+                // Find preview elements by class instead of ID if needed
+                const previewContainer = document.querySelector('.file-preview-container') || 
+                                         document.createElement('div');
+                const fileLabel = document.querySelector('.file-input-label');
+                
+                if (this.files && this.files[0]) {
+                    // Create elements if they don't exist
+                    if (!document.getElementById('image-preview')) {
+                        const preview = document.createElement('img');
+                        preview.id = 'image-preview';
+                        preview.className = 'file-preview';
+                        
+                        // Use safe append
+                        if (fileLabel && fileLabel.parentNode) {
+                            fileLabel.parentNode.appendChild(preview);
+                        }
+                    }
+                    
+                    if (!document.getElementById('image-name')) {
+                        const nameSpan = document.createElement('span');
+                        nameSpan.id = 'image-name';
+                        
+                        // Use safe append
+                        if (fileLabel && fileLabel.parentNode) {
+                            fileLabel.parentNode.appendChild(nameSpan);
+                        }
+                    }
+                    
+                    // Now set their values
+                    const preview = document.getElementById('image-preview');
+                    const nameSpan = document.getElementById('image-name');
+                    
+                    if (preview) {
+                        const file = this.files[0];
+                        const reader = new FileReader();
+                        
+                        reader.onload = function(e) {
+                            preview.src = e.target.result;
+                            preview.classList.remove('hidden');
+                            if (nameSpan) {
+                                nameSpan.textContent = `${file.name} (${Math.round(file.size/1024)}KB)`;
+                                nameSpan.classList.remove('hidden');
+                            }
+                        };
+                        
+                        reader.readAsDataURL(file);
+                    }
+                }
+            });
+        },
+        
+        // Set up form submission
+        setupFormSubmission: function() {
+            const form = document.getElementById('transmit-form');
+            if (!form) return;
+            
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                // Show loading indicator if it exists
+                const loader = document.querySelector('.loader');
+                if (loader) loader.classList.add('active');
+                
+                // Disable submit button
+                const submitBtn = this.querySelector('button[type="submit"]');
+                const originalBtnText = submitBtn ? submitBtn.innerHTML : '';
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+                }
+                
+                // Submit form
+                const formData = new FormData(this);
+                fetch('/process_transmit', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Hide loading indicator
+                    if (loader) loader.classList.remove('active');
+                    
+                    // Reset button
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalBtnText;
+                    }
+                    
+                    if (data.success) {
+                        // Use the result section that's already in your HTML
+                        const resultSection = document.getElementById('transmit-result') || 
+                                             document.querySelector('.result-section');
+                                             
+                        if (resultSection) {
+                            // Update password
+                            const passwordText = resultSection.querySelector('.password-text') || 
+                                                resultSection.querySelector('#generated-password');
+                            if (passwordText) passwordText.textContent = data.password;
+                            
+                            // Update download link
+                            const downloadLink = resultSection.querySelector('.download-link') || 
+                                                resultSection.querySelector('#download-link');
+                            if (downloadLink) downloadLink.href = data.download_url;
+                            
+                            // Show result section
+                            resultSection.style.display = 'block';
+                            resultSection.classList.add('active');
+                            
+                            // Scroll to results
+                            resultSection.scrollIntoView({ behavior: 'smooth' });
+                        }
+                    } else {
+                        alert('Error: ' + (data.error || 'Unknown error occurred'));
+                    }
+                })
+                .catch(error => {
+                    // Hide loading indicator
+                    if (loader) loader.classList.remove('active');
+                    
+                    // Reset button
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalBtnText;
+                    }
+                    
+                    alert('Error: ' + error.message);
+                });
+            });
+        },
+        
+        // Set up password copy
+        setupPasswordCopy: function() {
+            const copyBtn = document.querySelector('.copy-btn') || document.getElementById('copy-password-btn');
+            if (!copyBtn) return;
+            
+            copyBtn.addEventListener('click', function() {
+                const passwordText = document.querySelector('.password-text') || 
+                                    document.getElementById('generated-password');
+                                    
+                if (passwordText) {
+                    const text = passwordText.textContent;
+                    navigator.clipboard.writeText(text).then(
+                        function() {
+                            // Success feedback
+                            const originalHTML = copyBtn.innerHTML;
+                            copyBtn.innerHTML = '<i class="fas fa-check"></i>';
+                            
+                            setTimeout(function() {
+                                copyBtn.innerHTML = originalHTML;
+                            }, 1500);
+                        }
+                    );
+                }
+            });
+        },
+        
+        // Set up visualization
+        setupVisualization: function() {
+            const visualizeBtn = document.querySelector('#visualization-button') || 
+                               document.getElementById('visualize-btn');
+            if (!visualizeBtn) return;
+            
+            visualizeBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                // Find visualization container using multiple possible selectors
+                let container = document.getElementById('visualization-container') || 
+                               document.getElementById('vis-container') ||
+                               document.querySelector('.visualization-container');
+                               
+                // If container doesn't exist, create it in a safe location
+                if (!container) {
+                    container = document.createElement('div');
+                    container.id = 'visualization-container';
+                    container.style.marginTop = '20px';
+                    container.style.textAlign = 'center';
+                    
+                    // Find a safe parent from multiple possible options
+                    const possibleParents = [
+                        document.querySelector('.download-section'),
+                        visualizeBtn.parentNode,
+                        document.querySelector('.card-body'),
+                        document.querySelector('.result-section')
+                    ];
+                    
+                    // Try each parent until one works
+                    for (const parent of possibleParents) {
+                        if (parent) {
+                            try {
+                                parent.appendChild(container);
+                                break; // Success, exit loop
+                            } catch (err) {
+                                console.log('Could not append to', parent);
+                                // Continue to next possible parent
+                            }
+                        }
+                    }
+                }
+                
+                // Toggle visualization
+                if (container) {
+                    if (container.style.display === 'none' || !container.style.display) {
+                        // Show loading
+                        container.style.display = 'block';
+                        container.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+                        
+                        // Load image
+                        const img = new Image();
+                        img.onload = function() {
+                            container.innerHTML = '';
+                            try {
+                                container.appendChild(img);
+                                visualizeBtn.innerHTML = '<i class="fas fa-eye-slash"></i> Hide Visualization';
+                            } catch (err) {
+                                console.log('Error appending image:', err);
+                                container.innerHTML = '<div>Visualization loaded</div>';
+                            }
+                        };
+                        img.onerror = function() {
+                            container.innerHTML = '<div class="alert alert-danger">Failed to load visualization</div>';
+                        };
+                        img.style.maxWidth = '100%';
+                        img.src = '/visualization?' + new Date().getTime();
+                    } else {
+                        // Hide visualization
+                        container.style.display = 'none';
+                        container.innerHTML = '';
+                        visualizeBtn.innerHTML = '<i class="fas fa-eye"></i> Show Visualization';
+                    }
+                }
+            });
+        }
+    };
+    
+    // Run everything
+    PixelPath.init();
+});
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Fix form submission issue (stuck on "Processing...")
+    const transmitForm = document.getElementById('transmit-form');
+    if (transmitForm) {
+        // Remove any existing handlers to avoid conflicts
+        const newForm = transmitForm.cloneNode(true);
+        if (transmitForm.parentNode) {
+            transmitForm.parentNode.replaceChild(newForm, transmitForm);
+        }
+        
+        // Add our clean handler
+        newForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Get submit button
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalBtnText = submitBtn ? submitBtn.innerHTML : 'Submit';
+            
+            // Show loading state
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            }
+            
+            // Process form
+            const formData = new FormData(this);
+            fetch('/process_transmit', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                // IMPORTANT: Reset button state immediately
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalBtnText;
+                }
+                
+                if (data.success) {
+                    // Update result elements with response data
+                    const passwordText = document.querySelector('.password-text') || document.getElementById('generated-password');
+                    if (passwordText) passwordText.textContent = data.password;
+                    
+                    const downloadLink = document.querySelector('.download-link') || document.getElementById('download-link');
+                    if (downloadLink) downloadLink.href = data.download_url;
+                    
+                    // Show result section
+                    const resultSection = document.querySelector('.result-section') || document.getElementById('transmit-result');
+                    if (resultSection) {
+                        resultSection.style.display = 'block';
+                        resultSection.classList.add('active');
+                    }
+                    
+                    // Fix copy button functionality
+                    setupCopyButton();
+                    
+                    // Fix visualization button
+                    setupVisualizationButton();
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                // Reset button on error too
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalBtnText;
+                }
+                
+                alert('Error: ' + error.message);
+            });
+        });
+    }
+    
+    // Fix copy button to work multiple times
+    function setupCopyButton() {
+        // Find all copy buttons
+        const copyButtons = document.querySelectorAll('.copy-btn');
+        
+        copyButtons.forEach(btn => {
+            // Remove old handlers by cloning
+            const newBtn = btn.cloneNode(true);
+            if (btn.parentNode) {
+                btn.parentNode.replaceChild(newBtn, btn);
+            }
+            
+            // Add fresh event listener
+            newBtn.addEventListener('click', function() {
+                // Find the password text using various selectors
+                const passwordElem = document.querySelector('.password-text') || 
+                                    document.getElementById('generated-password');
+                
+                if (passwordElem) {
+                    // Copy to clipboard
+                    const text = passwordElem.textContent;
+                    navigator.clipboard.writeText(text)
+                        .then(() => {
+                            // Show feedback
+                            const originalHTML = this.innerHTML;
+                            const originalClass = this.className;
+                            
+                            this.innerHTML = '<i class="fas fa-check"></i>';
+                            this.style.color = 'var(--success)';
+                            
+                            // Reset after delay
+                            setTimeout(() => {
+                                this.innerHTML = originalHTML;
+                                this.style.color = '';
+                            }, 1500);
+                        })
+                        .catch(err => {
+                            console.error('Copy failed', err);
+                            alert('Failed to copy password');
+                        });
+                }
+            });
+        });
+    }
+    
+    // Fix visualization button toggle behavior
+    function setupVisualizationButton() {
+        const visualizeBtn = document.getElementById('visualization-button');
+        if (!visualizeBtn) return;
+        
+        // Replace to clear old handlers
+        const newBtn = visualizeBtn.cloneNode(true);
+        if (visualizeBtn.parentNode) {
+            visualizeBtn.parentNode.replaceChild(newBtn, visualizeBtn);
+        }
+        
+        // Add fresh handler
+        newBtn.addEventListener('click', function() {
+            let container = document.getElementById('vis-container');
+            
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'vis-container';
+                container.style.marginTop = '20px';
+                container.style.textAlign = 'center';
+                
+                // Add container in a safe place
+                const downloadSection = document.querySelector('.download-section');
+                if (downloadSection) {
+                    downloadSection.appendChild(container);
+                } else if (this.parentNode) {
+                    this.parentNode.appendChild(container);
+                }
+            }
+            
+            // Toggle visualization
+            if (container.style.display === 'none' || !container.style.display) {
+                container.style.display = 'block';
+                container.innerHTML = '<div class="loader active"></div>';
+                this.innerHTML = '<i class="fas fa-eye-slash"></i> Hide Visualization';
+                
+                // Load image
+                const img = new Image();
+                img.onload = function() {
+                    container.innerHTML = '';
+                    container.appendChild(img);
+                };
+                img.onerror = function() {
+                    container.innerHTML = '<div class="alert alert-danger">Failed to load visualization</div>';
+                };
+                img.style.maxWidth = '100%';
+                img.src = '/visualization?' + new Date().getTime();
+            } else {
+                container.style.display = 'none';
+                this.innerHTML = '<i class="fas fa-eye"></i> Visualise graph';
+            }
+        });
+    }
+    
+    // Run setup for existing elements
+    setupCopyButton();
+    setupVisualizationButton();
+});
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Get file input element
+    const fileInput = document.querySelector('input[type="file"]');
+    
+    if (fileInput) {
+        fileInput.addEventListener('change', function() {
+            // Get the closest parent form-group
+            const formGroup = this.closest('.form-group');
+            
+            // Remove any existing preview
+            const existingPreview = formGroup.querySelector('.file-preview');
+            const existingName = formGroup.querySelector('.file-name');
+            
+            if (existingPreview) existingPreview.remove();
+            if (existingName) existingName.remove();
+            
+            // Check if a file is selected
+            if (this.files && this.files[0]) {
+                const file = this.files[0];
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    // Create image preview
+                    const preview = document.createElement('img');
+                    preview.classList.add('file-preview');
+                    preview.src = e.target.result;
+                    preview.alt = 'Image Preview';
+                    
+                    // Create file name element
+                    const nameEl = document.createElement('div');
+                    nameEl.classList.add('file-name', 'mt-2', 'text-center');
+                    nameEl.style.color = 'var(--text-secondary)';
+                    nameEl.style.fontSize = '0.9rem';
+                    nameEl.textContent = `${file.name} (${Math.round(file.size / 1024)} KB)`;
+                    
+                    // Add to document
+                    formGroup.appendChild(preview);
+                    formGroup.appendChild(nameEl);
+                };
+                
+                // Start reading the file
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+});
 </script>
 {% endblock %}

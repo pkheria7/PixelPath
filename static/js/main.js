@@ -82,16 +82,26 @@ function handleTransmitForm(e) {
         method: 'POST',
         body: formData
     })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Server error');
-        }
-        return response.json();
-    })
+    .then(response => response.json())
     .then(data => {
         if (data.success) {
             // Show success message and results
             displayTransmitResults(data.password, data.output_file);
+            
+            // Add this to display the visualization
+            if (data.visualization_url) {
+                // Create a section for the visualization
+                const visualizationSection = document.createElement('div');
+                visualizationSection.className = 'visualization-section';
+                visualizationSection.innerHTML = `
+                    <h3>Path Visualization</h3>
+                    <p>This animation shows how the algorithm traversed the image to hide your message:</p>
+                    <img src="${data.visualization_url}" alt="Path Visualization" style="max-width: 100%; margin-top: 10px;">
+                `;
+                
+                // Append to the results container
+                document.getElementById('results').appendChild(visualizationSection);
+            }
         } else {
             showError(data.error || 'An error occurred');
         }

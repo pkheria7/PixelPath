@@ -9,6 +9,10 @@ directions = [(-3, -3), (-3, 0), (-3, 3),
 def message_to_binary(message):
     return ''.join(format(ord(char), '08b') for char in message) + '11111111'
 
+def image_to_binary(image):
+    pass
+
+
 def binary_to_message(mess_convert):
     message = ""
     flag = False

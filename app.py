@@ -45,6 +45,7 @@ def process_transmit():
             
             image_file = request.files['image']
             if image_file.filename == '':
+      
                 return jsonify({'error': 'No image selected'}), 400
             
             # Check if the file is a .png
@@ -56,10 +57,30 @@ def process_transmit():
             image_file.save(filepath)
             print(f"Image saved to: {filepath}")
             
+            # Validate the PNG file before processing
+            try:
+                from PIL import Image
+                # This will raise an exception if the file is not a valid image
+                with Image.open(filepath) as img:
+                    # Force loading the image to verify it's valid
+                    img.load()
+                    # Check that it's actually a PNG
+                    if img.format != 'PNG':
+                        return jsonify({'error': 'File is not a valid PNG image'}), 400
+            except Exception as e:
+                error_msg = f"Invalid image file: {str(e)}"
+                print(error_msg)
+                return jsonify({'error': error_msg}), 400
+            
             # Generate password
             print("Generating password...")
-            password = get_Password(image_path=filepath, keyword=keyword, prime_number=prime_number, random_number=random_number)
-            print(f"Password generated: {password}")
+            try:
+                password = get_Password(image_path=filepath, keyword=keyword, prime_number=prime_number, random_number=random_number)
+                print(f"Password generated: {password}")
+            except SyntaxError as e:
+                return jsonify({'error': f'Corrupt PNG file: {str(e)}'}), 400
+            except Exception as e:
+                return jsonify({'error': f'Error generating password: {str(e)}'}), 500
             
             # Create output filename and path
             output_filename = f"encoded_{filename}"
@@ -69,10 +90,7 @@ def process_transmit():
             # Import encryption function and encrypt the image
             print("Starting image encryption...")
             from encoder import encrypt_image
-            # Check if function exists
-            if not callable(encrypt_image):
-                return jsonify({'error': 'encrypt_image function not found or not callable'}), 500
-                
+            
             # Call the encryption function
             try:
                 encrypt_image(
@@ -82,6 +100,16 @@ def process_transmit():
                     output_path=output_path
                 )
                 print(f"Encryption complete, checking if file exists: {output_path}")
+                
+                # Try visualization but continue if it fails
+                try:
+                    from visualise import vis
+                    vis(max_size=800, low_memory_mode=True) 
+                    print("Visualization completed successfully")
+                except MemoryError:
+                    print("Visualization skipped due to memory constraints")
+                except Exception as e:
+                    print(f"Visualization error: {str(e)}")
                 
                 # Verify the file was created
                 if os.path.exists(output_path):
@@ -98,11 +126,15 @@ def process_transmit():
             # Generate download URL
             download_url = url_for('download_file', filename=output_filename)
             
+            # In the process_transmit function, update the final return statement:
+
+# In your success response JSON:
             return jsonify({
                 'success': True,
                 'password': password,
                 'output_file': output_filename,
-                'download_url': download_url
+                'download_url': download_url,
+                'visualization_url': url_for('get_visualization', _external=True)
             })
         except Exception as e:
             import traceback
@@ -153,10 +185,27 @@ def download_file(filename):
     except Exception as e:
         print(f"Error in download_file: {str(e)}")
         return jsonify({'error': str(e)}), 500
+# Add this route right before your if __name__ == '__main__': line
 
+@app.route('/visualization')
+def get_visualization():
+    """Serve the visualization GIF file"""
+    vis_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'path_visualization.gif')
+    
+    if os.path.exists(vis_path):
+        # Create response with the file
+        response = send_file(vis_path, mimetype='image/gif')
+        
+        # Set cache control headers to prevent caching
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        
+        return response
+    else:
+        return jsonify({'error': 'Visualization not found'}), 404
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
     # app.run(debug=True, port=8080)
-    
